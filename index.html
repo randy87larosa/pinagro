@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda de Citas - Rose 22</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #fdfdfd;
+        }
+
+        .header {
+            text-align: center;
+            background-color: purple;
+            color: white;
+            padding: 20px 0;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.8em;
+        }
+
+        .header h2 {
+            margin: 10px 0;
+            font-size: 1.2em;
+        }
+
+        .day-names {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 10px;
+        }
+
+        .controls button {
+            padding: 10px 15px;
+            background-color: purple;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .controls button:hover {
+            background-color: #c2185b;
+        }
+
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            padding: 10px;
+        }
+
+        .day {
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+            font-size: 0.9em;
+        }
+
+        .day.occupied {
+            background-color: #ffc107;
+        }
+
+        .modal, .move-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 500px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .modal.active, .move-modal.active {
+            display: block;
+        }
+
+        .modal input, .modal select, .move-modal input, .move-modal select {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        .modal button, .move-modal button {
+            width: 100%;
+            padding: 10px;
+            background-color: purple;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .modal button:hover, .move-modal button:hover {
+            background-color: #c2185b;
+        }
+
+        .appointment-list {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .appointment-list #search-bar {
+            text-align: center;
+            width: 100%;
+            height: 2em;
+            margin-bottom: 1em;
+        }
+
+        .appointment-item {
+            padding: 10px;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .appointment-item button {
+            padding: 5px 10px;
+            background-color: red;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+
+        .appointment-item button.move-btn {
+            background-color: #007bff;
+        }
+
+        .appointment-item button.move-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .notifications {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+
+        #notification-bell {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
+            position: relative;
+        }
+
+        #notification-count {
+            position: absolute;
+            top: -5px;
+            right: -10px;
+            background-color: red;
+            color: white;
+            font-size: 12px;
+            padding: 2px 5px;
+            border-radius: 50%;
+        }
+
+        .notification-dropdown {
+            position: absolute;
+            top: 40px;
+            right: 0;
+            width: 250px;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .notification-dropdown p {
+            margin: 0;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .notification-dropdown p:last-child {
+            border-bottom: none;
+        }
+
+
+        @media (max-width: 600px) {
+            .calendar {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .controls button {
+                margin-bottom: 5px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Agenda de Citas - Rose 22</h1>
+        <h2 id="current-week"></h2>
+    </div>
+
+    <div class="controls">
+        <button id="prev-week">Semana Anterior</button>
+        <button id="current-week-btn">Semana Actual</button>
+        <button id="add-appointment-btn">Añadir Cita</button>
+        <button id="view-appointments-btn">Ver Citas</button>
+        <button id="hide-appointments-btn" style="display: none;">Ocultar Citas</button>
+        <button id="next-week">Semana Siguiente</button>
+        <button id="delete-all-appointments" style="background-color: red;">Borrar Todas las Citas</button>
+        <div class="notifications">
+            <button id="notification-bell">
+                🔔
+                <span id="notification-count" style="display: none;">0</span>
+            </button>
+            <div id="notification-list" class="notification-dropdown" style="display: none;">
+                <p>No hay notificaciones.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="calendar" id="calendar"></div>
+
+    <div class="modal" id="appointment-modal">
+        <h2>Agregar Nueva Cita</h2>
+        <input type="text" id="client-name" placeholder="Nombre del Cliente">
+        <input type="text" id="client-phone" placeholder="Número de Teléfono"><button id="create-contact">Crear Contacto</button>
+        <input type="date" id="appointment-date">
+        <select id="appointment-time"></select>
+        <button id="save-appointment">Guardar Cita</button>
+        <button id="cancel-appointment">Cancelar</button>
+    </div>
+
+    <div class="move-modal" id="move-modal">
+        <h2>Mover Cita</h2>
+        <input type="date" id="move-date">
+        <select id="move-time"></select>
+        <button id="move-appointment-btn">Mover</button>
+        <button id="cancel-move-btn">Cancelar</button>
+    </div>
+
+    <div class="appointment-list" id="appointment-list">
+        <input type="text" id="search-bar" placeholder="Buscar citas...">
+        <div id="appointment-items"></div>
+    </div>
+
+    <script>
+        const appointments = JSON.parse(localStorage.getItem('appointments')) || [];
+        const calendar = document.getElementById('calendar');
+        const currentWeekLabel = document.getElementById('current-week');
+        const appointmentModal = document.getElementById('appointment-modal');
+        const moveModal = document.getElementById('move-modal');
+        const appointmentTimeInput = document.getElementById('appointment-time');
+        const moveTimeInput = document.getElementById('move-time');
+        const appointmentDateInput = document.getElementById('appointment-date');
+        const clientNameInput = document.getElementById('client-name');
+        const clientPhoneInput = document.getElementById('client-phone');
+        const moveDateInput = document.getElementById('move-date');
+        const moveAppointmentBtn = document.getElementById('move-appointment-btn');
+        const cancelMoveBtn = document.getElementById('cancel-move-btn');
+        const addAppointmentBtn = document.getElementById('add-appointment-btn');
+        const hideAppointmentsBtn = document.getElementById('hide-appointments-btn');
+        const viewAppointmentsBtn = document.getElementById('view-appointments-btn');
+        const saveAppointmentBtn = document.getElementById('save-appointment');
+        const cancelAppointmentBtn = document.getElementById('cancel-appointment');
+        const appointmentList = document.getElementById('appointment-list');
+        const appointmentItems = document.getElementById('appointment-items');
+        const searchBar = document.getElementById('search-bar');
+        const prevWeekBtn = document.getElementById('prev-week');
+        const nextWeekBtn = document.getElementById('next-week');
+        const currentWeekBtn = document.getElementById('current-week-btn');
+
+        let currentWeekStart = new Date();
+        currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() + 1);
+        let currentAppointmentToMove = null;
+
+        function updateWeekHeader() {
+            const startOfWeek = new Date(currentWeekStart);
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+            currentWeekLabel.textContent = `Semana: ${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`;
+        }
+
+        function normalizeDateToCuba(date) {
+            const normalized = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            return normalized;
+        }
+
+        function formatTimeTo12Hour(timeString) {
+            const time = new Date(`1970-01-01T${timeString}Z`);
+            return time.toLocaleTimeString('es-ES', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        function renderCalendar() {
+            calendar.innerHTML = '';
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(currentWeekStart);
+                day.setDate(currentWeekStart.getDate() + i);
+                const normalizedDay = day;
+
+                const dayElement = document.createElement('div');
+                dayElement.className = 'day';
+                const dayName = normalizedDay.toLocaleDateString('es-ES', { weekday: 'long' });
+                dayElement.innerHTML = `
+                    <span style="font-weight: bold; text-transform: capitalize;">${dayName}</span>
+                    <br/>
+                    <br/>
+                    <span style="border-bottom: 1px solid">${normalizedDay.toLocaleDateString()}</span>
+                `;
+                const dayAppointments = appointments.filter(appt => {
+                    const apptDate = appt.date;
+                    return apptDate === normalizedDay.toISOString().split('T')[0];
+                });
+
+
+                if (dayAppointments.length > 0) {
+                    dayElement.classList.add('occupied');
+                    dayElement.innerHTML += `
+                        <div style="margin-top: 1em; text-align: left;" class="appointments">
+                             ${dayAppointments.map((appt, index) => `
+                                <div style="display: flex; align-items: center; margin-bottom: 0.5em;">
+                                    <span>${convertdate(appt)} - ${appt.name}</span>
+                                    <a href="https://wa.me/${appt.phone}" target="_blank" style="margin-left: auto; text-decoration: none;">
+                                        <button style="margin-left: 10px; padding: 5px; background-color: #25d366; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                            WhatsApp
+                                        </button>
+                                    </a>
+                                    <button onclick="deleteAppointmentFromCalendar(${index})" style="margin-left: 10px; padding: 5px; background-color: red; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                        X
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                dayElement.addEventListener('click', () => openAppointmentModal(normalizedDay));
+                calendar.appendChild(dayElement);
+            }
+        }
+
+        function deleteAppointmentFromCalendar(index) {
+            if (confirm('¿Estás seguro de que deseas eliminar esta cita?')) {
+                appointments.splice(index, 1); // Elimina la cita del array
+                localStorage.setItem('appointments', JSON.stringify(appointments)); // Actualiza el localStorage
+                renderCalendar(); // Actualiza el calendario
+                renderAppointments(); // Actualiza la lista de citas, si está visible
+                alert('Cita eliminada correctamente.');
+            }
+        }
+
+
+        function openAppointmentModal(day) {
+            clearAppointmentModal();
+            const cubaDate = normalizeDateToCuba(day);
+            appointmentDateInput.value = cubaDate.toISOString().split('T')[0];
+            appointmentModal.classList.add('active');
+        }
+
+        function populateTimeOptions(selectElement) {
+            selectElement.innerHTML = '';
+            for (let hour = 9; hour <= 16; hour++) {
+                selectElement.innerHTML += `<option value="${hour}:00">${hour % 12 || 12}:00 ${hour < 12 ? 'AM' : 'PM'}</option>`;
+                selectElement.innerHTML += `<option value="${hour}:30">${hour % 12 || 12}:30 ${hour < 12 ? 'AM' : 'PM'}</option>`;
+            }
+        }
+
+        function closeModal() {
+            appointmentModal.classList.remove('active');
+        }
+
+        function saveAppointment() {
+            const name = clientNameInput.value.trim();
+            const phone = clientPhoneInput.value.trim();
+            const date = appointmentDateInput.value;
+            const time = appointmentTimeInput.value;
+
+            if (name && phone && date && time) {
+                const duplicate = appointments.find(appt => appt.date === date && appt.time === time);
+                if (duplicate) {
+                    alert(`Ya existe una cita con ${duplicate.name} a las ${duplicate.time}`);
+                    return;
+                }
+
+                appointments.push({ name, phone, date, time });
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+                closeModal();
+                renderCalendar();
+                renderAppointments();
+            } else {
+                alert('Por favor, completa todos los campos.');
+            }
+        }
+
+        function moveAppointment() {
+            const newDate = moveDateInput.value;
+            const newTime = moveTimeInput.value;
+
+            if (!newDate || !newTime) {
+                alert('Selecciona una nueva fecha y hora.');
+                return;
+            }
+
+            const duplicate = appointments.find(appt => appt.date === newDate && appt.time === newTime);
+            if (duplicate) {
+                alert(`Ya existe una cita con ${duplicate.name} a las ${duplicate.time}`);
+                return;
+            }
+
+            currentAppointmentToMove.date = newDate;
+            currentAppointmentToMove.time = newTime;
+            localStorage.setItem('appointments', JSON.stringify(appointments));
+            closeMoveModal();
+            renderCalendar();
+            renderAppointments();
+        }
+
+        function renderAppointments(filter = '') {
+            appointmentItems.innerHTML = '';
+            const sortedAppointments = appointments.sort((a, b) => {
+                const dateA = new Date(`${a.date}T${a.time}`);
+                const dateB = new Date(`${b.date}T${b.time}`);
+                return dateA - dateB;
+            });
+
+            const filteredAppointments = sortedAppointments.filter(appt => 
+                appt.name.toLowerCase().includes(filter.toLowerCase()) ||
+                appt.date.includes(filter)
+            );
+
+            filteredAppointments.forEach((appt, index) => {
+                const item = document.createElement('div');
+                item.className = 'appointment-item';
+                const ddt = new Date(appt.date);
+                const ddt1 = new Date(appt.date);
+                ddt.setDate(ddt1.getDate() + 1);
+                const ddt3 = ddt.toLocaleDateString()
+                item.innerHTML = `
+                    <span>${ddt3} ${appt.time} - ${appt.name}</span>
+                    <button class="move-btn" onclick="openMoveModal(${index})">Mover</button>
+                    <button onclick="deleteAppointment(${index})">Eliminar</button>
+                `;
+                appointmentItems.appendChild(item);
+            });
+        }
+
+        function deleteAppointment(index) {
+            appointments.splice(index, 1);
+            localStorage.setItem('appointments', JSON.stringify(appointments));
+            renderAppointments();
+            renderCalendar();
+        }
+
+        function clearAppointmentModal() {
+            clientNameInput.value = '';
+            clientPhoneInput.value = '';
+            appointmentDateInput.value = '';
+        }
+
+        function openMoveModal(index) {
+            clearAppointmentModal();
+            currentAppointmentToMove = appointments[index];
+            moveDateInput.value = currentAppointmentToMove.date;
+            moveModal.classList.add('active');
+        }
+
+        function closeMoveModal() {
+            clearAppointmentModal();
+            moveModal.classList.remove('active');
+        }
+
+        function toggleAppointmentsList(show) {
+            if (show) {
+                appointmentList.style.display = 'block';
+                viewAppointmentsBtn.style.display = 'none';
+                hideAppointmentsBtn.style.display = 'inline-block';
+                renderAppointments();
+            } else {
+                appointmentList.style.display = 'none';
+                viewAppointmentsBtn.style.display = 'inline-block';
+                hideAppointmentsBtn.style.display = 'none';
+            }
+        }
+
+        prevWeekBtn.addEventListener('click', () => {
+            currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+            renderCalendar();
+            updateWeekHeader();
+        });
+
+        nextWeekBtn.addEventListener('click', () => {
+            currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+            renderCalendar();
+            updateWeekHeader();
+        });
+
+        currentWeekBtn.addEventListener('click', () => {
+            currentWeekStart = new Date();
+            currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() + 1);
+            renderCalendar();
+            updateWeekHeader();
+        });
+        
+        document.getElementById('delete-all-appointments').addEventListener('click', () => {
+            if (confirm('¿Estás seguro de que deseas borrar todas las citas? Esta acción no se puede deshacer.')) {
+                // Vaciar el array de citas
+                appointments.length = 0;
+
+                // Guardar cambios en localStorage
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+
+                // Actualizar el calendario y la lista de citas
+                renderCalendar();
+                renderAppointments();
+
+                alert('Todas las citas han sido borradas.');
+            }
+        });
+
+        addAppointmentBtn.addEventListener('click', () => appointmentModal.classList.add('active'));
+        saveAppointmentBtn.addEventListener('click', saveAppointment);
+        cancelAppointmentBtn.addEventListener('click', closeModal);
+        moveAppointmentBtn.addEventListener('click', moveAppointment);
+        cancelMoveBtn.addEventListener('click', closeMoveModal);
+        viewAppointmentsBtn.addEventListener('click', () => {
+            appointmentList.style.display = 'block';
+            renderAppointments();
+            toggleAppointmentsList(true);
+        });
+        hideAppointmentsBtn.addEventListener('click', () => toggleAppointmentsList(false));
+        searchBar.addEventListener('input', (e) => renderAppointments(e.target.value));
+
+        document.getElementById('create-contact').addEventListener('click', () => {
+            const name = clientNameInput.value.trim();
+            const phone = clientPhoneInput.value.trim();
+
+            if (!name || !phone) {
+                alert('Por favor, completa el nombre y el teléfono.');
+                return;
+            }
+
+            // Crear el contenido del archivo vCard
+            const vCardData = `
+        BEGIN:VCARD
+        VERSION:3.0
+        FN:${name}
+        TEL:${phone}
+        END:VCARD
+        `;
+
+            // Crear un Blob con los datos del vCard
+            const blob = new Blob([vCardData], { type: 'text/vcard' });
+            const url = URL.createObjectURL(blob);
+
+            // Crear un enlace para descargar el archivo
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${name}.vcf`; // Nombre del archivo
+            a.style.display = 'none';
+
+            // Añadir al DOM, hacer clic y luego eliminar el enlace
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Liberar el objeto URL
+            URL.revokeObjectURL(url);
+        });
+
+        // Solicitar permiso para notificaciones
+        if ('Notification' in window) {
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    console.log('Permiso para notificaciones concedido.');
+                } else {
+                    console.log('Permiso para notificaciones denegado.');
+                }
+            });
+        }
+
+        function checkForUpcomingAppointments() {
+            const now = new Date();
+            const upcomingAppointments = appointments.filter(appt => {
+                const appointmentTime = new Date(`${appt.date}T${appt.time}`);
+                const timeDifference = appointmentTime - now;
+
+                // Verificar si la cita es en los próximos 15 minutos
+                return timeDifference > 0 && timeDifference <= 15 * 60 * 1000;
+            });
+
+            upcomingAppointments.forEach(appt => {
+                notifyUser(appt);
+            });
+        }
+
+        function convertdate(appt) {
+            const appointmentTime = new Date(`${appt.date}T${appt.time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return appointmentTime
+        }
+
+        function notifyUser(appt) {
+            const appointmentTime = new Date(`${appt.date}T${appt.time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const notificationTitle = '¡Próxima cita!';
+            const notificationOptions = {
+                body: `Tienes una cita con ${appt.name} a las ${appointmentTime}.`,
+                icon: 'https://via.placeholder.com/128' // Cambia por un ícono real
+            };
+            const msg = `Tienes una cita con ${appt.name} a las ${appointmentTime}.`;
+            addNotification(msg);
+
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(notificationTitle, notificationOptions);
+            }
+        }
+
+        const notifications = []; // Array para almacenar las notificaciones
+        const notificationBell = document.getElementById('notification-bell');
+        const notificationCount = document.getElementById('notification-count');
+        const notificationList = document.getElementById('notification-list');
+
+        // Función para añadir una notificación
+        function addNotification(message) {
+            notifications.unshift(message);
+
+            // Limitar el array a las últimas 5 notificaciones
+            if (notifications.length > 5) {
+                notifications.pop();
+            }
+
+            // Actualizar la interfaz
+            updateNotificationUI();
+            // notifications.push(message);
+
+            // // Actualizar contador y lista
+            // updateNotificationUI();
+        }
+
+        // Función para actualizar el UI de las notificaciones
+        function updateNotificationUI() {
+            // Actualizar el contador
+            if (notifications.length > 0) {
+                notificationCount.textContent = notifications.length;
+                notificationCount.style.display = 'inline';
+            } else {
+                notificationCount.style.display = 'none';
+            }
+
+            // Actualizar la lista de notificaciones
+            if (notifications.length > 0) {
+                notificationList.innerHTML = notifications
+                    .map((notif, index) => `<p>${notif}</p>`)
+                    .join('');
+            } else {
+                notificationList.innerHTML = '<p>No hay notificaciones.</p>';
+            }
+        }
+
+
+        // Manejar clic en el botón de la campana
+        notificationBell.addEventListener('click', () => {
+            const isVisible = notificationList.style.display === 'block';
+            notificationList.style.display = isVisible ? 'none' : 'block';
+        });
+
+        // Ejemplo: Añadir una notificación
+
+        // Comprobar cada minuto
+        setInterval(checkForUpcomingAppointments, 30 * 1000);
+
+        populateTimeOptions(appointmentTimeInput);
+        populateTimeOptions(moveTimeInput);
+        renderCalendar();
+        updateWeekHeader();
+        toggleAppointmentsList(false);
+    </script>
+</body>
+</html>
